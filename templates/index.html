@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid-Bot by Tyas</title>
+</head>
+<body>
+    <h1>Grid-Bot</h1>
+
+    <div class="container-asset">
+        <form action="/start" method="POST">
+            <select name="symbol" id="symbol">
+                {% for balance in range(len_balances) %}
+                    <option>
+                        {{ balances_Info[balance]['asset'] }}USDT
+                    </option>
+                {% endfor %}
+            </select>
+            <input type="text" name="grid" id="grid" placeholder="Total of Grid">
+            <input type="text" name="low_bar" id="low_bar" placeholder="Input Batas Bawah">
+            <input type="text" name="high_bar" id="high_bar" placeholder="Input Batas Atas">
+            <input type="submit" name="submit" id="submit" value="next">
+        </form>
+        <!-- <table id="asset">
+            {% for balance in range(len_balances) %}
+            <form action=""></form>
+            {% endfor %}
+        </table> -->
+    </div>
+</body>
+</html>

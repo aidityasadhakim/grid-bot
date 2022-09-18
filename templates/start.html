@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Bot</title>
+</head>
+<body>
+    <h1>Start Bot</h1>
+
+    <h2>Grid Bot Detail</h2>
+    <ul>
+        <li>
+            Symbol : {{ bar_detail['symbol'] }}
+        </li>
+        <li>
+            High Bar : {{ bar_detail['high_bar'] }}
+        </li>
+        <li>
+            Low Bar : {{ bar_detail['low_bar'] }}
+        </li>
+        <li>
+            Total Grid : {{ bar_detail['total_grid'] }}
+        </li>
+        <li>
+            Grid Size : {{ bar_detail['grid_size'] }}
+        </li>
+        <li>
+            Percentage Profit Each Bar : {{ percentage*100 }}%
+        </li>
+        {% if(message) %}
+            <li style="color: red;">
+                The Grid Size is lower than the fee rate, this will make you gain zero(or even negative) profit
+                <a href="/">Click here to go back</a>
+            </li>
+        {% endif %}
+    </ul>
+    <form action="/run" method="POST">
+        <label for="notional">Input Nominal : </label>
+        <input type="text" name="notional" id="notional" placeholder="{{ bar_detail['min_notional'] }}">
+        <input type="hidden" name="high_bar" id="high_bar" value="{{bar_detail['high_bar']}}">
+        <input type="hidden" name="low_bar" id="low_bar" value="{{bar_detail['low_bar']}}">
+        <input type="hidden" name="total_grid" id="total_grid" value="{{bar_detail['total_grid']}}">
+        <input type="hidden" name="grid_size" id="grid_size" value="{{bar_detail['grid_size']}}">
+        <input type="hidden" name="symbol" id="symbol" value="{{ bar_detail['symbol'] }}">
+        <input type="submit" name="submit" id="submit">
+    </form>
+</body>
+</html>
