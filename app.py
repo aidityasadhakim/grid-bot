@@ -1,10 +1,12 @@
-from ast import Num
-from glob import glob
-from itertools import count
-from tkinter import LAST
-from flask import Flask, render_template, jsonify, request
+# Created by Aidityas Adhakim
+# This code is not fully mine
+# You can watch the explanation of the main algorithm in the link below
+# https://youtu.be/QzqMGX4Qk1A
+
+from flask import Flask, render_template, request
 import ccxt, config, sys, time, threading
 
+# This will contain all the detail for the grid lines bar
 BAR_DETAIL = {
         'symbol':"",
         'high_bar':0,
@@ -16,21 +18,28 @@ BAR_DETAIL = {
         'amount':0
     }
 
+# This will contain the grid lines detail
 GRID_LINES = {}
 
+# This will contain the order id, so that we can track an open order
 buy_orders = []
 sell_orders = []
 
 app = Flask(__name__)
 
+# You can change the exchanges to whatever you want
 exchange = ccxt.binance({
     "apiKey": config.API_KEY,
     "secret": config.API_SECURITY
 })
 
+# Track the start price and the last buy order or the bottom price of the bar
 START_PRICES = 0
 LAST_PRICES = 0
 
+# Index page where you can choose what coin to trade
+# Also to input the total bar
+# And you can also put the price boundary
 @app.route('/')
 def index():
     get_Balances = exchange.fetchBalance()
@@ -38,10 +47,14 @@ def index():
     len_balances = len(balances_Info)
     return render_template('index.html', balances_Info = balances_Info, len_balances = len_balances)
 
+# This page will show you all the information you have input
+# and also shows the size of each bar
+# It also show the percentage profit of each bar
 @app.route('/start', methods=['POST'])
 def start():
     global BAR_DETAIL
 
+    # Fill the bar detail information based on the data sent
     BAR_DETAIL['symbol'] = request.form['symbol']
     BAR_DETAIL['high_bar'] = float(request.form['high_bar'])
     BAR_DETAIL['low_bar'] = float(request.form['low_bar'])
@@ -56,12 +69,18 @@ def start():
     BAR_DETAIL['grid_size'] = (difference / BAR_DETAIL['total_grid'])
     percentage_size = BAR_DETAIL['grid_size'] / price 
 
+    # The fee for binance is 0.05%
+    # so if the percentage profit is below that than you will gain no profit
+    # this will show up to alert you, if your percentage profit is negative
     message = False
     if(percentage_size < 0.0005):
         message = True
         print(message)
 
-    BAR_DETAIL['min_notional'] = BAR_DETAIL['total_grid']*2
+    # This is for the minimum notional for each trade/bar
+    # note that in Binance the min notional is $10
+    # so if you wanted to have 10 grid you need min notional of $100
+    BAR_DETAIL['min_notional'] = BAR_DETAIL['total_grid']*10
 
     return render_template('start.html', bar_detail = BAR_DETAIL, message=message, percentage=round(percentage_size,4))
 
@@ -69,6 +88,7 @@ def get_grid_lines():
     global BAR_DETAIL
     global GRID_LINES
 
+    # Get the difference price from the highest bar to the lowest bar
     DIFFERENCE = BAR_DETAIL['high_bar'] - BAR_DETAIL['low_bar']
 
     # Get Total Sell Bar, taking it from the position of the current price by percentage
@@ -78,14 +98,12 @@ def get_grid_lines():
 
     # Getting the distance from current price to high bar
     CURRENT_PRICE_DISTANCE = ((current_price - BAR_DETAIL['low_bar']) / DIFFERENCE * 100)
-    print(DIFFERENCE)
-    print(CURRENT_PRICE_DISTANCE)
 
-    # Getting the total sell bar by dividing the distance with the grid 
+    # Getting the total sell bar from its current position
     NUM_SELL_GRID = (((100 - CURRENT_PRICE_DISTANCE) / 100) * BAR_DETAIL['total_grid'] )
     NUM_SELL_GRID = int(NUM_SELL_GRID)
-    # Getting the total buy bar by dividing the distance with the grid size without substracting with 100
 
+    # Getting the total buy bar from its current position
     NUM_BUY_GRID = int(((CURRENT_PRICE_DISTANCE/100) * BAR_DETAIL['total_grid']))
 
     GRID_LINES = {
@@ -99,8 +117,10 @@ def initial_buy(notional):
     global START_PRICES
     global LAST_PRICES
 
+    # Getting the notional that will be traded
     BAR_DETAIL['notional'] = float(notional)
 
+    # Getting the start prices
     ticker = exchange.fetch_ticker(BAR_DETAIL['symbol'])
     START_PRICES = ticker['bid']
 
@@ -113,14 +133,18 @@ def initial_buy(notional):
     initial_buy_orders = exchange.create_market_buy_order(BAR_DETAIL['symbol'], BAR_DETAIL['amount'] * (GRID_LINES['num_sell']))
     print(initial_buy_orders)
 
+    # This will create a limit buy order based on the total of buy grid lines
+    # Note that every bar is decremental by the grid size
     for i in range(GRID_LINES['num_buy']):
         price = ticker['bid'] - (BAR_DETAIL['grid_size'] * (i+1))
         print("Submitting limit buy order at {}".format(price))
         order = exchange.create_limit_buy_order(BAR_DETAIL['symbol'],BAR_DETAIL['amount'],price)
         buy_orders.append(order['info'])
-    order = exchange.fetchOrder(buy_orders[-1]['orderId'],BAR_DETAIL['symbol'])
-    LAST_PRICES = order['price']
+    last_order = exchange.fetchOrder(buy_orders[-1]['orderId'],BAR_DETAIL['symbol'])
+    LAST_PRICES = last_order['price']
 
+    # This will create a limit sell order based on the total of sell grid lines
+    # Note that every bar is incremental by the grid size
     for i in range(GRID_LINES['num_sell']):
         price = ticker['bid'] + (BAR_DETAIL['grid_size'] * (i+1))
         print("Submitting limit sell order at {}".format(price))
@@ -131,9 +155,9 @@ def initial_buy(notional):
 
 @app.route('/run', methods=['POST'])
 def run():
-    # global count
-
     global BAR_DETAIL
+    global GRID_LINES
+
 
     # Taking the FORM Detail, so the page is accessable even if the owner already close it
     FORM_DETAIL = {}
@@ -143,12 +167,11 @@ def run():
     FORM_DETAIL['total_grid'] = float(request.form['total_grid'])
     FORM_DETAIL['min_notional'] = float(FORM_DETAIL['total_grid'])*2
 
-    
+    # Calculate the difference from highest bar to lowest bar
     difference = FORM_DETAIL['high_bar'] - FORM_DETAIL['low_bar']
 
     FORM_DETAIL['grid_size'] = difference / FORM_DETAIL['total_grid']
 
-    global GRID_LINES
 
     # Get the Number of Total Grid Lines
     get_grid_lines()
@@ -156,6 +179,9 @@ def run():
     # Making Initial Buy
     initial_buy(request.form['notional'])
 
+    # Running a multithread
+    # This will run an Infinite Loop where the infinite loop will keep checking the order
+    # Check the detail on while_function function
     first_thread = threading.Thread(target=while_function)
     first_thread.start()
     
@@ -189,7 +215,7 @@ def while_function():
         for buy_order in buy_orders:
             print("Checking buy orderr {}".format(buy_order['orderId']))
 
-            # Getting the order data by id
+            # Getting the buy order by id
             try:
                 order = exchange.fetchOrder(buy_order['orderId'],BAR_DETAIL['symbol'])
             except Exception as e:
@@ -200,7 +226,10 @@ def while_function():
 
             # If the buy order is closed than a new sell order will be created
             if order_info['status'] == config.CLOSED_ORDER_STATUS:
+                # Appending the closed order to closed_order_ids
                 closed_order_ids.append(order_info['orderId'])
+
+                # Creating a new sell order
                 print("buy order executed at {}".format(order_info['price']))
                 new_sell_price = float(order_info['price']) + BAR_DETAIL['grid_size']
                 print("create a new sell order at {}".format(new_sell_price))
@@ -221,8 +250,12 @@ def while_function():
             
             order_info = order['info']
 
+            # If the buy order is closed than a new sell order will be created
             if order_info['status'] == config.CLOSED_ORDER_STATUS:
+                # Append the closed order to closed_order_ids list
                 closed_order_ids.append(order_info['orderId'])
+
+                # Creating a new sell order
                 print("sell order executed at {}".format(order_info['price']))
                 new_buy_price = float(order_info['price']) - BAR_DETAIL['grid_size']
                 print("create a new buy order at {}".format(new_buy_price))
@@ -231,13 +264,16 @@ def while_function():
             
             time.sleep(config.CHECK_ORDERS_FREQUENCY)
         
+        # This will check for every order than has been closed
+        # And later it will remove it from the main order list
+        # Then later the system will not check for the closed order anymore
         for order_id in closed_order_ids:
             buy_orders = [buy_orders for buy_order in buy_orders if buy_order['orderId'] != order_id]
             sell_orders = [sell_orders for sell_order in sell_orders if sell_order['orderId'] != order_id]
 
-        if len(sell_orders) == 0:
-            sys.exit("Nothing to sell, bot stopped")
-
+        # This will get the real time price data
+        # And if the price go below the stop loss
+        # The bot will automatically close all order and keep selling the coin until no more left
         if(price_tracker < (LAST_PRICES * config.STOP_LOSS)):
             print("Price Hitting The Stop Loss..")
             print("Cancelling All Order")
@@ -250,27 +286,11 @@ def while_function():
                     print("You hit the stop loss, all the asset has been sold!")
                     sys.exit("Bot Stopped")
 
+# This will run the app
 def run_app():
     app.run(debug=False, threaded=True)
 
+# This will start the app
 if __name__ == "__main__":
     first_thread = threading.Thread(target=run_app)
     first_thread.start()
-
-# start_price = exchange.fetch_ticker(config.SYMBOL)
-# start_price = float(start_price['bid'])
-
-
-# print("Start Price  : {}".format(start_price))
-# print("End Price  : {}".format(start_price * 0.9995))
-# print("End Price  : {}".format(start_price * 1.0005))
-
-
-
-# try:
-#     # exchange.create_market_sell_order(config.SYMBOL,config.POSITION_SIZE)
-#     order = exchange.create_limit_buy_order(config.SYMBOL,config.POSITION_SIZE,start_price * 0.99)
-#     print(order)
-# except Exception as e:
-#     print(e)
-    
