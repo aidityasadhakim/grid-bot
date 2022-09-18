@@ -46,7 +46,7 @@ And then your terminal should look like this
 And then you can open http://127.0.0.1:5000/ on your browser
 
 It should look like this 
-![Landing Page](index.jpeg)
+![Landing Page](img/index.jpeg)
 
 Then you can start choose the coin you want to trade and then input the total grid, highest bar and lowest bar. Examples look like below : 
 
@@ -56,7 +56,7 @@ Then you can start choose the coin you want to trade and then input the total gr
 
 After that, you can click **next**
 
-![Start Page](start.jpeg)
+![Start Page](img/start.jpeg)
 
 And then this page will show up, it shows the detail of the grid bot you will run and then it ask you how much you want to trade in usd. Note that there will be a minimum notional that showed up in the box, so make sure you input more than that notional, otherwise it will not run.
 
